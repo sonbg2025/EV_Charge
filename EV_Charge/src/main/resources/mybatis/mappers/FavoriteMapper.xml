@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="FavoriteMapper">
+
+    <insert id="insertFavorite" parameterType="com.boot.dto.FavoriteDTO">
+        INSERT INTO ev_favorite (
+            user_no, stnAddr, stnPlace, rapidCnt, slowCnt, carType
+        ) VALUES (
+            #{user_no}, #{stnAddr}, #{stnPlace}, #{rapidCnt}, #{slowCnt}, #{carType}
+        )
+    </insert>
+    
+    <!-- 삭제 쿼리 추가 -->
+	<delete id="deleteFavorite" parameterType="com.boot.dto.FavoriteDTO">
+	DELETE FROM ev_favorite
+	 WHERE user_no = #{user_no}
+	   AND stnAddr = #{stnAddr}
+	   AND stnPlace = #{stnPlace}
+	</delete>
+	
+	<select id="getFavoritesByUserNo" parameterType="int" resultType="com.boot.dto.FavoriteDTO">
+		select user_no
+			 , stnAddr
+			 , stnPlace
+			 , rapidCnt
+		     , slowCnt
+		     , carType
+		  from EV_favorite
+		 where user_no = #{user_no}
+	</select>
+
+</mapper>
