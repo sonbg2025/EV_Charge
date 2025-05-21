@@ -6,15 +6,58 @@
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Document</title>
+	  <c:if test="${not empty sessionScope.user}">
+	  <script>
+	      window.myApp = window.myApp || {};
+	      window.myApp.userNo = ${sessionScope.user.user_no};
+	      window.myApp.contextPath = '${pageContext.request.contextPath}';
+	  </script>
+	  </c:if>
+
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
       <script src="${pageContext.request.contextPath}/js/jquery.js"></script>
-      <script src="${pageContext.request.contextPath}/js/region.js"></script>
+<!--	  ---------------------------------------------추가시킴------------------->
+
+
+<c:if test="${not empty sessionScope.user && not empty sessionScope.user.user_no}">
+<script>
+    window.APP_USER_NO = parseInt(${sessionScope.user.user_no}); // ⭐ 1. user_no 전역 설정
+</script>
+</c:if>
+<c:if test="${empty sessionScope.user || empty sessionScope.user.user_no}">
+<script>
+    window.APP_USER_NO = null;
+</script>
+</c:if>
+<!------------------------------------------------------------------------------------------>
+
       <style>
          html, body {
             margin: 0;
             padding: 0;
             height: 100%;
             /* overflow: hidden; */
+            }
+            #reset{
+               position: fixed;
+               bottom: 50px;
+               left: 1000px;
+               z-index: 1000;
+               padding: 10px 20px;
+               border-radius: 30px;
+               font-weight: bolder;
+               background-color: #0475f4;
+               color: white;
+            }
+            #reset:hover{
+               background-color: #0062d3;
+               cursor: pointer;
+            }
+            #reset i{
+               transition: transform 0.7s ease;
+            }
+            #reset:hover i{
+               transform: rotate(180deg);
             }
       </style>
    </head>
@@ -31,6 +74,9 @@
       <!-- 지도 표시 -->
       <div id="map" style="width:100%;height:93%;"></div>
 
+      <div id="reset"><i class="fas fa-sync-alt"></i> &nbsp;현 지도에서 검색</i>
+</div>
+
       <!-- 추후에 사용자 세션 받아서 blind 및 display 처리 요망. -->
       <!-- 사용자 세션 받으면 center_lat과 center_lng는 사용자 가입시 설정되는 area 값으로 지정 -->
 
@@ -42,7 +88,7 @@
          if (center_lat == null && center_lng == null) {
             center_lat = 37.5400456;
             center_lng = 126.9921017;
-         };
+         };	
 
          var mapOption = {
             center: new kakao.maps.LatLng(center_lat, center_lng), // 지도의 중심좌표
@@ -57,8 +103,7 @@
             center_lng = latlng.getLng();
             console.log('현재 중심 좌표:', center_lat, center_lng);
          });
-      </script>
-      <script>
+
          // 읍/면/동 옵션 업데이트 함수
          function updatearea_emd_nm() {
             const area_ctpy_nm = document.getElementById("area_ctpy_nm").value;
@@ -79,7 +124,7 @@
            }
          }
 
-         window.addMarker = function(address, lat, lng, name, rapid, slow, car) {
+         window.addMarker = function(stat_id, address, lat, lng, name, rapid, slow, car) {
             const position = new kakao.maps.LatLng(lat, lng);
             const marker = new kakao.maps.Marker({
                position: position,
@@ -121,6 +166,7 @@
                $(".station-sidebarA").addClass("active");
                var markerData = {
                   name: name
+				  ,stat_id: stat_id
                   ,address: address
                   ,lat: lat
                   ,lng: lng
@@ -131,7 +177,7 @@
                
                console.log(markerData);
                // 충전소 상세 정보 업데이트
-               updateStationDetail(markerData);
+               updateStationDetailTwo(markerData);
             });
 
 			   // 지도 클릭 액션
@@ -216,6 +262,54 @@
                               var newCenter = new kakao.maps.LatLng(center_lat, center_lng);
                               map.setCenter(newCenter);
                               console.log("@# 새로운 중심 좌표:", center_lat, center_lng);
+
+                              fetch("/search_data", {
+                                 method: "POST"
+                                 ,headers: {
+                                    "Content-Type": "application/json"
+                                 }
+                                 ,body: JSON.stringify({
+                                    lat: center_lat,
+                                    lng: center_lng
+                                 }) 
+                              })
+                              .then(response => response.json())
+                              .then(data => {
+                                 console.log("서버 응답 데이터 => ", data);
+                                 for (var i = 0; i < markers.length; i++) {
+                                    markers[i].setMap(null);
+                                 }
+                                 // data.forEach(charger => {
+                                 //    window.addMarker(
+                                 //              charger.lat,
+                                 //              charger.lng,
+                                 //              charger.stat_name
+                                 //          );
+                                 // });
+                                 markers = [];
+                                 markerInfoMap = {};  // 초기화
+
+                                 // 같은 위치끼리 그룹핑
+                                 data.forEach(charger => {
+                                       const key = charger.lat+","+charger.lng;
+                                       if (!markerInfoMap[key]) {
+                                          markerInfoMap[key] = [];
+                                       }
+                                       markerInfoMap[key].push(charger);
+                                       // console.log(markerInfoMap[key]);
+                                 });
+
+                                 // 마커 찍기 (중복 없이)
+                                 Object.entries(markerInfoMap).forEach(([key, chargers]) => {
+                                       const [lat, lng] = key.split(',').map(Number);
+                                       window.addMarker_two(lat, lng, chargers);
+                                       // console.log("chargers => ", chargers);
+                                 });
+                              })
+                              .catch(error => {
+                                 console.error("오류 발생 => ", error);
+                              });
+
                            } else {
                               alert("해당 정보는 없는 정보입니다.");
                            }
@@ -227,44 +321,247 @@
                      //----------------------------------
                      //  두 번째 fetch 요청
                      // 검색 클릭 이벤트 핸들러 내부의 updateMapCoordinates_two 응답 처리 부분
-                     fetch('/updateMapCoordinates_two', {
-                        method: 'POST',
-                        headers: {
-                           'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(addr_place_list)
-                     }).then(response => response.json())
-                        .then(data => {
-                           console.log("@# 2단계");
-                           console.log("@# 서버 응답 데이터:", data);
-                           // 기존 마커 제거 (추가하기)
-                           for (var i = 0; i < markers.length; i++) {
-                              markers[i].setMap(null);
-                           }
-                           markers = [];
+
+                     // fetch('/updateMapCoordinates_two', {
+                     //    method: 'POST',
+                     //    headers: {
+                     //       'Content-Type': 'application/json'
+                     //    },
+                     //    body: JSON.stringify(addr_place_list)
+                     // }).then(response => response.json())
+                     //    .then(data => {
+                     //       console.log("@# 2단계");
+                     //       console.log("@# 서버 응답 데이터:", data);
+                     //       // 기존 마커 제거 (추가하기)
+                     //       for (var i = 0; i < markers.length; i++) {
+                     //          markers[i].setMap(null);
+                     //       }
+                     //       markers = [];
                            
-                           // 새로운 응답 형식 처리
-                           if (data.coordinates && data.coordinates.length > 0) {
-                              // 모든 좌표에 대해 마커 추가
-                              data.coordinates.forEach(coord => {
-                                 console.log(`@#@# 마커 추가: ${coord.latitude}, ${coord.longitude}`);
-                                 addMarker(coord.address, coord.latitude, coord.longitude, coord.name, coord.rapid, coord.slow, coord.car);
-                              });
-                           } else {
-                              alert("해당 정보는 없는 정보입니다.(two)");
-                           }
-                        }).catch(error => {
-                           console.error("Error:", error);
-                           alert("위도 경도 변환 중 오류가 발생했습니다.(two)");
-                        });
+                     //       // 새로운 응답 형식 처리
+                     //       if (data.coordinates && data.coordinates.length > 0) {
+                     //          // 모든 좌표에 대해 마커 추가
+                     //          data.coordinates.forEach(coord => {
+                     //             // console.log(`@#@# 마커 추가: ${coord.latitude}, ${coord.longitude}`);
+                     //             console.log("@#@# 마커 추가: ", coord.latitude, ", "+coord.longitude);
+                     //             addMarker(coord.address, coord.latitude, coord.longitude, coord.name, coord.rapid, coord.slow, coord.car);
+                     //          });
+                     //       } else {
+                     //          alert("해당 정보는 없는 정보입니다.(two)");
+                     //       }
+                     //    }).catch(error => {
+                     //       console.error("Error:", error);
+                     //       alert("위도 경도 변환 중 오류가 발생했습니다.(two)");
+                     //    });
+                     
                   },
                   error: function () {
                      alert("1단계 오류");
                   }
                });
             });
-         });         
+         });
 
+         // 현 지도에서 검색
+         // window.addMarker = function(lat, lng, stat_name) {
+         //    console.log("새로운 마커");
+         //    const position = new kakao.maps.LatLng(lat, lng);
+         //    const marker = new kakao.maps.Marker({
+         //       position: position,
+         //       map: map,
+         //       name: stat_name
+         //    });
+         //    console.log("마커를 찍었습니다. => "+lat+", "+lng);
+         //    markers.push(marker); // 마커 배열에 추가
+
+         //    var infowindow = new kakao.maps.InfoWindow({
+         //       content: '<div style="padding:5px;font-size:12px;">'+name+'</div>'
+         //    });
+
+         //    let isOpen = false;
+
+         //    // 마커 클릭
+         //    kakao.maps.event.addListener(marker, 'click', function() {
+         //       console.log("마커를 클릭했습니다. 위치: " + lat + ", " + lng + ", 이름: " + stat_name);
+      
+         //       map.setCenter(new kakao.maps.LatLng(lat, lng-0.003));
+         //       map.setLevel(3);
+
+         //       infowindow.open(map, marker);
+
+         //       $("#close-detail-sidebar,#close-sidebar").on("click", function () {
+         //          infowindow.close();
+         //       });
+               
+         //       // 마커 클릭했을때 사이드바 생성 및 데이터 전달
+         //       $(".station-sidebar").addClass("active");
+         //       $(".station-sidebarA").addClass("active");
+         //       var markerData = {
+         //          name: stat_name
+         //          ,lat: lat
+         //          ,lng: lng
+         //       }
+               
+         //       console.log(markerData);
+         //       // 충전소 상세 정보 업데이트
+         //       updateStationDetail(markerData);
+         //    });
+
+			//    // 지도 클릭 액션
+         //    kakao.maps.event.addListener(map, 'click', function() {
+         //       infowindow.close();
+         //       isOpen = false;
+               
+         //       $(".station-sidebarA").removeClass("active");
+         //    });
+         //    return marker;
+         // };
+         // let markers = [];
+         // let markerInfoMap = {};
+
+         window.addMarker_two = function(lat, lng, chargerList) {
+            console.log("마커찍기");
+            // console.log("chargerList => ", chargerList);
+            const key = lat+","+lng;
+            const position = new kakao.maps.LatLng(lat, lng);
+
+            const marker = new kakao.maps.Marker({
+               position: position,
+               map: map
+            });
+
+            markers.push(marker);
+
+			// 마커 클릭 이벤트
+			          kakao.maps.event.addListener(marker, 'click', function () {
+			             console.log("addMarker_two 클릭됨 =>", lat, lng, "충전기 개수:", chargerList.length);
+
+			             if (!chargerList || chargerList.length === 0) {
+			                 console.error("addMarker_two 클릭: chargerList가 비어있거나 유효하지 않습니다.");
+			                 alert("선택한 충전소의 상세 정보를 가져올 수 없습니다.");
+			                 return;
+			             }
+
+			             // chargerList의 첫 번째 요소를 기준으로 상세 정보를 표시한다고 가정
+			             const firstCharger = chargerList[0];
+
+			             if (!firstCharger || !firstCharger.stat_id || firstCharger.stat_id.trim() === "") {
+			                 console.error("addMarker_two 클릭: 첫 번째 충전기 정보에 유효한 stat_id가 없습니다.", firstCharger);
+			                 alert("선택한 충전소의 ID 정보가 없어 상세 정보를 표시할 수 없습니다.");
+			                 return;
+			             }
+			              console.log("addMarker_two 클릭: 전달할 첫 번째 충전소 정보 (stat_id 포함):", firstCharger);
+
+
+			             map.setCenter(new kakao.maps.LatLng(lat, lng - 0.003));
+			             map.setLevel(3);
+
+			             $(".station-sidebar").addClass("active"); // 목록 사이드바도 함께 열리는지 확인 필요
+			             $(".station-sidebarA").addClass("active");
+
+			             // updateStationDetailTwo 함수는 chargerList를 포함하는 객체를 기대함
+			             const markerData = {
+			                   // lat, lng은 chargerList[0]에 이미 있으므로 중복이지만, 명시적으로 전달해도 무방
+			                   lat: firstCharger.lat, // 또는 lat 파라미터 사용
+			                   lng: firstCharger.lng, // 또는 lng 파라미터 사용
+			                   chargerList: chargerList // 전체 chargerList 전달
+			             };
+			             
+			             // updateStationDetailTwo 호출 전에 stat_id가 있는지 다시 확인
+			             console.log("addMarker_two: updateStationDetailTwo 호출 직전 markerData.chargerList[0].stat_id:", markerData.chargerList[0].stat_id);
+
+			             if (window.updateStationDetailTwo) {
+			                 updateStationDetailTwo(markerData);
+			             } else {
+			                 console.error("updateStationDetailTwo 함수를 찾을 수 없습니다.");
+			             }
+			          });
+
+            return marker;
+         };
+
+         $(document).on("click", "#reset", function (e) {
+            console.log("현 지도에서 검색 클릭");
+            console.log(center_lat + " / " + center_lng);
+
+            fetch("/search_data", {
+                method: "POST"
+               ,headers: {
+                  "Content-Type": "application/json"
+               }
+               ,body: JSON.stringify({
+                  lat: center_lat,
+                  lng: center_lng
+               }) 
+            })
+            .then(response => response.json())
+            .then(data => {
+               console.log("서버 응답 데이터 => ", data);
+               for (var i = 0; i < markers.length; i++) {
+                  markers[i].setMap(null);
+               }
+               // data.forEach(charger => {
+               //    window.addMarker(
+               //              charger.lat,
+               //              charger.lng,
+               //              charger.stat_name
+               //          );
+               // });
+               markers = [];
+               markerInfoMap = {};  // 초기화
+
+               // 같은 위치끼리 그룹핑
+               data.forEach(charger => {
+                     const key = charger.lat+","+charger.lng;
+                     if (!markerInfoMap[key]) {
+                        markerInfoMap[key] = [];
+                     }
+                     markerInfoMap[key].push(charger);
+                     // console.log(markerInfoMap[key]);
+               });
+
+               // 마커 찍기 (중복 없이)
+               Object.entries(markerInfoMap).forEach(([key, chargers]) => {
+                     const [lat, lng] = key.split(',').map(Number);
+                     window.addMarker_two(lat, lng, chargers);
+                     // console.log("chargers => ", chargers);
+               });
+            })
+            .catch(error => {
+               console.error("오류 발생 => ", error);
+            });
+         });
+
+		 window.userFavoriteStationIds = new Set(); // 먼저 빈 Set으로 선언
+
+		     async function initializeGlobalFavoriteStatus() {
+		         const currentLoggedInUserNo = window.APP_USER_NO; // ⭐ 2. 설정된 전역 user_no 사용
+
+		         if (!currentLoggedInUserNo || currentLoggedInUserNo <= 0) {
+		             console.log('[전역] 비로그인 상태. 즐겨찾기 초기화 안함.');
+		             return;
+		         }
+
+		         try {
+		             const response = await fetch(`/favorite/status?user_no=${currentLoggedInUserNo}`);
+		             const data = await response.json();
+		             if (data.status === 'success' && Array.isArray(data.favoriteStationIds)) {
+		                 window.userFavoriteStationIds = new Set(data.favoriteStationIds); // ⭐ 3. 전역 Set 채우기
+		                 console.log('[전역] 즐겨찾기 목록 로드 완료:', Array.from(window.userFavoriteStationIds));
+		             } else {
+		                 console.warn('[전역] 즐겨찾기 목록 로드 실패:', data.message || 'API 응답 오류');
+		             }
+		         } catch (error) {
+		             console.error('[전역] 즐겨찾기 목록 로드 중 예외:', error);
+		         }
+		     }
+
+		     document.addEventListener('DOMContentLoaded', function() {
+		         // ⭐ 4. DOM 로드 후 (user_no가 확실히 설정된 후) 즐겨찾기 목록 가져오기
+		         if (window.APP_USER_NO) { // 로그인 상태일 때만 호출
+		             initializeGlobalFavoriteStatus();
+		         }
+		     });
       </script>
    </body>
 
