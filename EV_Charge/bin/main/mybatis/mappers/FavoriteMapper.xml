@@ -29,10 +29,8 @@
     <select id="findFavoriteDetailsByUserNo" resultType="com.boot.favorite.dto.FavoriteDetailDTO">
         SELECT 
             fav.stat_id AS stat_id,
-            ecd.stat_name AS stn_place,
+            ecd.stat_name AS stn_place, 	바꾸기
             ecd.addr AS stn_addr,
-            ecd.lat AS evse_location_latitude,
-            ecd.lng AS evse_location_longitude
         FROM 
             ev_user_favorites fav
         INNER JOIN 
@@ -42,4 +40,5 @@
         ORDER BY 
             fav.created_at DESC
     </select>
+    
 </mapper>
