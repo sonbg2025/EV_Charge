@@ -1,44 +1,21 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-
 <mapper namespace="com.boot.favorite.dao.FavoriteDAO">
 
-    <select id="findFavoriteByStatId" resultType="java.lang.Integer">
-        SELECT favorite_id 
-        FROM ev_user_favorites 
+    <select id="findFavorite" parameterType="map" resultType="com.boot.favorite.dto.FavoriteDTO">
+        SELECT favorite_id, user_no, stat_id, addr, addr_detail, location, lat, lng, created_at
+        FROM ev_user_favorites
         WHERE user_no = #{user_no} AND stat_id = #{stat_id}
-        LIMIT 1
     </select>
 
-    <insert id="addFavorite">
-        INSERT INTO ev_user_favorites (user_no, stat_id, created_at)
-        VALUES (#{user_no}, #{stat_id}, NOW())
+    <insert id="insertFavorite" parameterType="com.boot.favorite.dto.FavoriteDTO" useGeneratedKeys="true" keyProperty="favorite_id">
+        INSERT INTO ev_user_favorites (user_no, stat_id, addr, addr_detail, location, lat, lng)
+        VALUES (#{user_no}, #{stat_id}, #{addr}, #{addr_detail}, #{location}, #{lat}, #{lng})
     </insert>
 
-    <delete id="deleteFavorite">
-        DELETE FROM ev_user_favorites 
+    <delete id="deleteFavorite" parameterType="map">
+        DELETE FROM ev_user_favorites
         WHERE user_no = #{user_no} AND stat_id = #{stat_id}
     </delete>
 
-    <select id="findFavoriteStatIdsByUserNo" resultType="java.lang.String">
-        SELECT stat_id 
-        FROM ev_user_favorites
-        WHERE user_no = #{user_no}
-    </select>
-    
-    <select id="findFavoriteDetailsByUserNo" resultType="com.boot.favorite.dto.FavoriteDetailDTO">
-        SELECT 
-            fav.stat_id AS stat_id,
-            ecd.stat_name AS stn_place, 	바꾸기
-            ecd.addr AS stn_addr,
-        FROM 
-            ev_user_favorites fav
-        INNER JOIN 
-            ev_charger_data ecd ON fav.stat_id = ecd.stat_id
-        WHERE 
-            fav.user_no = #{user_no}
-        ORDER BY 
-            fav.created_at DESC
-    </select>
-    
 </mapper>

@@ -2,6 +2,7 @@
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
 
+
 <link rel="stylesheet" href="${pageContext.request.contextPath}/css/station_detail.css">
 <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=109dd4a6fbdf108d896544146388b47e&libraries=services"></script>
 <div id="station-detail-sidebar" class="station-sidebarA">
@@ -31,10 +32,10 @@
             <!-- 충전소 기본 정보 -->
             <div class="detail-section">
                 <div class="station-header">
-                    <h2 id="station-name" class="station-title"></h2>
-                    <button id="toggle-favorite" class="favorite-btn" title="즐겨찾기">
-                        <i class="fas fa-star"></i>
-                    </button>
+					<h2 id="station-name" class="station-title"></h2>
+					<button id="station-detail-favorite-btn" class="favorite-toggle-btn" data-stat-id="">
+					    <span class="star-icon">⭐</span> 즐겨찾기
+					</button>
                 </div>
                 
                 <div class="station-address-container">
@@ -213,6 +214,12 @@
     </div>
 </div>
 <script>
+	
+// ------------------- 여기 추가됨 ---------------------------
+	window.currentStationFullDataForFavorite = {};
+// ------------------- 여기 추가됨 ---------------------------
+		
+	
     document.addEventListener('DOMContentLoaded', function() {
         // 사이드바 토글
         const sidebar = document.getElementById('station-detail-sidebar');
@@ -221,9 +228,6 @@
         
         // 사이드바 열기 함수 (외부에서 호출 가능)
         window.openDetailSidebar = function(stationData) {
-            // 여기에 stationData를 사용하여 사이드바 내용을 채우는 로직 구현
-            // 예: document.getElementById('station-name').textContent = stationData.name;
-            
             sidebar.classList.add('active');
         };
         
@@ -241,20 +245,90 @@
             }
         });
         
-        // 즐겨찾기 토글
-        const favoriteBtn = document.getElementById('toggle-favorite');
-        
-        favoriteBtn.addEventListener('click', function() {
-            this.classList.toggle('active');
-            
-            // 즐겨찾기 API 호출 로직 (사용자가 구현)
-            const stationId = document.getElementById('station-name').getAttribute('data-id');
-            const isFavorite = this.classList.contains('active');
-            
-            console.log(`충전소 ${stationId} 즐겨찾기 ${isFavorite ? '추가' : '제거'}`);
-        });
-    });
+       
+		// ---------------- 추가됨 -------------------
+		
+		const favButton = document.getElementById('station-detail-favorite-btn');
+		    if (favButton) {
+		        favButton.addEventListener('click', function() {
+		            const statId = this.getAttribute('data-stat-id');
+		            const userNo = window.myApp.userNo; // main.jsp의 전역 변수 사용
+					// --- 디버깅 코드 추가 ---
+					console.log('[Station Detail] 클릭 시 window.APP_USER_NO 값:', window.APP_USER_NO);
+					console.log('[Station Detail] userNo 변수 값:', userNo, '(타입:', typeof userNo, ')');
+					   // --- 디버깅 코드 끝 ---
 
+		            if (!userNo) {
+		                alert("로그인이 필요합니다.");
+		                return;
+		            }
+
+		            if (!statId) {
+		                alert("충전소 ID를 찾을 수 없습니다.");
+		                return;
+		            }
+
+		            if (!window.currentStationFullDataForFavorite || window.currentStationFullDataForFavorite.stat_id !== statId) {
+		                alert("충전소 상세 정보가 올바르게 로드되지 않았습니다. 다시 시도해주세요.");
+		                console.error("statId에 대한 currentStationFullDataForFavorite 불일치 또는 누락:", statId, window.currentStationFullDataForFavorite);
+		                return;
+		            }
+					
+
+		            const payload = {
+		                user_no: userNo,
+		                stat_id: statId,
+		                addr: window.currentStationFullDataForFavorite.addr,
+		                addr_detail: window.currentStationFullDataForFavorite.addr_detail,
+		                location: window.currentStationFullDataForFavorite.location,
+		                lat: window.currentStationFullDataForFavorite.lat,
+		                lng: window.currentStationFullDataForFavorite.lng
+		            };
+		            
+		            // console.log("즐겨찾기 토글 요청 데이터:", payload);
+
+		            $.ajax({
+		                url: (window.myApp && window.myApp.contextPath ? window.myApp.contextPath : '') + "/favorites/toggle",
+		                method: "POST",
+		                contentType: "application/json",
+		                data: JSON.stringify(payload),
+		                success: function(response) {
+		                    alert(response.message);
+		                    if (response.status === 'success') {
+		                        const starIcon = favButton.querySelector('.star-icon');
+		                        if (response.action === 'added') {
+		                            favButton.classList.add('favorited');
+		                            starIcon.textContent = '🌟'; // 채워진 별
+		                            favButton.childNodes[1].nodeValue = " 즐겨찾기됨";
+		                            if (window.userFavoriteStationIds) window.userFavoriteStationIds.add(statId);
+		                        } else if (response.action === 'removed') {
+		                            favButton.classList.remove('favorited');
+		                            starIcon.textContent = '⭐'; // 빈 별
+		                            favButton.childNodes[1].nodeValue = " 즐겨찾기";
+		                            if (window.userFavoriteStationIds) window.userFavoriteStationIds.delete(statId);
+		                        }
+		                        // 실시간으로 업데이트되는 즐겨찾기 목록/사이드바가 있다면 여기서 새로고침
+		                        // 예: if (typeof refreshFavoritesSidebar === 'function') refreshFavoritesSidebar();
+		                    }
+		                },
+		                error: function(jqXHR, textStatus, errorThrown) {
+		                    console.error("즐겨찾기 토글 오류:", textStatus, errorThrown, jqXHR.responseText);
+		                    let errorMsg = "즐겨찾기 처리 중 오류가 발생했습니다.";
+		                    if (jqXHR.responseJSON && jqXHR.responseJSON.message) {
+		                        errorMsg = jqXHR.responseJSON.message;
+		                    }
+		                    alert(errorMsg);
+		                }
+		            });
+		        });
+		    } else {
+		        // 이 콘솔 로그는 DOMContentLoaded 실행 시 버튼을 찾지 못했을 때 디버깅에 도움을 줍니다.
+		        // 버튼의 HTML이 아직 DOM에 없거나 ID 철자가 틀렸을 수 있습니다.
+		        console.error("DOMContentLoaded 실행 중 ID가 'station-detail-favorite-btn'인 즐겨찾기 버튼을 찾지 못했습니다.");
+		    }
+		// ---------------- 추가됨 -------------------
+		
+    });
     document.getElementById('findpathBtn').addEventListener('click', function () {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(function (position) {
@@ -315,6 +389,18 @@
         // chargerList.forEach(charger => {
         //     console.log("!@#$ => ",charger.stat_id,charger.chger_id);
         // });
+//	----------------------- 즐겨찾기 추가 ---------------------------------------------------------------------		
+		window.currentStationFullDataForFavorite = {
+		       stat_id: first.stat_id,
+		       addr: first.addr,
+		       addr_detail: (first.addr_detail && first.addr_detail !== "null") ? first.addr_detail : null,
+		       location: (first.location && first.location !== "null") ? first.location : null,
+		       lat: parseFloat(first.lat), // 숫자로 변환
+		       lng: parseFloat(first.lng)  // 숫자로 변환
+		   };
+		   // console.log("즐겨찾기용으로 저장된 데이터:", window.currentStationFullDataForFavorite);
+//	----------------------- 즐겨찾기 추가 ---------------------------------------------------------------------		
+
 
         fetch("stat_data", {
              method: "POST"
@@ -329,21 +415,6 @@
             slow_count = data.slow_stat_three;
             $("#station_lat").val(first.lat);
             $("#station_lng").val(first.lng);
-
-            // 전부다 반복으로 꺼내기
-            // chargerList.forEach(charger => {
-            //     console.log("전부 출력");
-            //     console.log("충전소 이름 => ", charger.stat_name);
-            //     console.log("충전기 타입 => ", charger.chger_type);
-            //     console.log("출력 => ", charger.output);
-            //     console.log("이용 가능 시간 => ", charger.use_time);
-            //     console.log("====================================");
-            // });
-
-            // 첫번째 꺼만 꺼내기
-            // console.log("!@#$!@#$", first.parking_free);
-            // console.log("첫 번째 충전소 이름 =>", first.stat_name);
-            // console.log("충전기 타입 =>", first.chger_type);
 
             // 이름
             document.getElementById("station-name").textContent = first.stat_name;
@@ -431,9 +502,32 @@
             document.getElementById("parking_free").textContent = parking_free;
             document.getElementById("operation-agency").textContent = first.busi_nm;
             document.getElementById("contact-number").textContent = first.busi_call;
-        })
+        	
+			//-----------추가-----------
+			const favButton = document.getElementById('station-detail-favorite-btn');
+			        if (favButton) {
+			            const currentStatId = first.stat_id; // 'first' 객체의 stat_id 사용
+			            favButton.setAttribute('data-stat-id', currentStatId);
+
+			            // 전역으로 초기화된 즐겨찾기 목록과 비교합니다.
+			            if (window.userFavoriteStationIds && window.userFavoriteStationIds.has(currentStatId)) {
+			                favButton.classList.add('favorited');
+			                favButton.querySelector('.star-icon').textContent = '🌟'; // 채워진 별
+			                favButton.childNodes[1].nodeValue = " 즐겨찾기됨"; // 별 아이콘 뒤 텍스트
+			            } else {
+			                favButton.classList.remove('favorited');
+			                favButton.querySelector('.star-icon').textContent = '⭐'; // 빈 별
+			                favButton.childNodes[1].nodeValue = " 즐겨찾기";   // 별 아이콘 뒤 텍스트
+			            }
+			        } else {
+			            console.error("ID가 'station-detail-favorite-btn'인 즐겨찾기 버튼을 찾을 수 없습니다.");
+			        }
+			//-----------추가-----------
+		})
         .catch(error => {
             console.log(error);
         });
     }
+	
+	
 </script>
