@@ -141,22 +141,4 @@ public class MemberController {
 //	        return "my_favorites_list";
 //	    }
 	
-	@GetMapping("/favorites")
-	public String showMyFavoritesPage(HttpServletRequest request, Model model) {
-	    log.info("즐겨찾기 목록 페이지 요청 수신");
-
-	    HttpSession session = request.getSession();
-	    Object userObj = session.getAttribute("user");
-
-	    if (userObj == null) {
-	        log.warn("비로그인 사용자의 즐겨찾기 페이지 접근 시도. 로그인 페이지로 리다이렉트합니다.");
-	        return "redirect:/login";
-	    }
-
-	    MemberDTO dto = (MemberDTO) userObj;
-	    model.addAttribute("memberDTO", dto);
-
-	    return "my_favorites_list";
-	}
-
 }

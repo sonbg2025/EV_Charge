@@ -1,15 +1,21 @@
 package com.boot.favorite.service;
 
-import com.boot.favorite.dao.FavoriteDAO;
-import com.boot.favorite.dto.FavoriteDTO;
-import com.boot.favorite.dto.FavoriteRequestDTO;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional; // Important for data consistency
 
-import java.util.HashMap;
-import java.util.Map;
+import com.boot.favorite.dao.FavoriteDAO;
+import com.boot.favorite.dto.FavoriteDTO;
+import com.boot.favorite.dto.FavoriteRequestDTO;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class FavoriteServiceImpl implements FavoriteService {
 
@@ -59,5 +65,12 @@ public class FavoriteServiceImpl implements FavoriteService {
             }
         }
         return response;
+    }
+    
+    @Override
+    public List<FavoriteDTO> getFavoriteDetailsList(int user_no) {
+        log.info("Fetching all favorite details for user_no: {}", user_no);
+        List<FavoriteDTO> favorites = favoriteDAO.findAllFavoritesByUserNo(user_no);
+        return favorites != null ? favorites : new ArrayList<>(); // null 대신 빈 리스트 반환
     }
 }

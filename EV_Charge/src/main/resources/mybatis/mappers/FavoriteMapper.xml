@@ -17,5 +17,22 @@
         DELETE FROM ev_user_favorites
         WHERE user_no = #{user_no} AND stat_id = #{stat_id}
     </delete>
+    
+       <select id="findAllFavoritesByUserNo" parameterType="int" resultType="com.boot.favorite.dto.FavoriteDTO">
+        SELECT 
+            favorite_id, 
+            user_no, 
+            stat_id, 
+            addr, 
+            addr_detail, 
+            location, 
+            lat, 
+            lng, 
+            created_at
+        FROM 
+            ev_user_favorites
+        WHERE 
+            user_no = #{user_no}
+    </select>
 
 </mapper>

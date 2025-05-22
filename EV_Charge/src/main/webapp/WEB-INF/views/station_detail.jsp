@@ -34,7 +34,7 @@
                 <div class="station-header">
 					<h2 id="station-name" class="station-title"></h2>
 					<button id="station-detail-favorite-btn" class="favorite-toggle-btn" data-stat-id="">
-					    <span class="star-icon">⭐</span> 즐겨찾기
+					    <span class="star-icon">⭐</span>
 					</button>
                 </div>
                 
